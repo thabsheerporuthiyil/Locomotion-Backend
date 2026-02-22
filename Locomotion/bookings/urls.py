@@ -1,0 +1,18 @@
+from django.urls import path
+from .views import (
+    CreateRideRequestView, 
+    DriverRideRequestListView, 
+    RiderRideRequestListView,
+    RideRequestDetailView,
+    RideRequestActionView,
+    CalculateFareView
+)
+
+urlpatterns = [
+    path('request/', CreateRideRequestView.as_view(), name='create-ride-request'),
+    path('driver-requests/', DriverRideRequestListView.as_view(), name='driver-requests'),
+    path('my-requests/', RiderRideRequestListView.as_view(), name='rider-requests'),
+    path('<int:pk>/', RideRequestDetailView.as_view(), name='ride-request-detail'),
+    path('<int:pk>/<str:action>/', RideRequestActionView.as_view(), name='ride-request-action'),
+    path('calculate-fare/', CalculateFareView.as_view(), name='calculate-fare'),
+]
