@@ -2,7 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from .models import DriverApplication,DriverProfile,DriverApplicationReview, DriverVehicle
-from .serializers import DriverApplicationSerializer
+from .serializers import DriverApplicationSerializer,DriverVehicleSerializer
 
 
 class AdminDriverApplicationListView(APIView):
@@ -40,11 +40,9 @@ class AdminDriverApplicationActionView(APIView):
                 status=400
             )
 
-        # Update current status
         application.status = "approved" if action == "approve" else "rejected"
         application.save()
 
-        # Create review record
         DriverApplicationReview.objects.create(
             application=application,
             status=application.status,
@@ -52,7 +50,6 @@ class AdminDriverApplicationActionView(APIView):
             reviewed_by=request.user
         )
 
-        # If approved → create profile
         if action == "approve":
             driver_profile, created = DriverProfile.objects.get_or_create(
                 user=application.user,
@@ -85,7 +82,6 @@ class AdminDriverApplicationActionView(APIView):
         return Response({"message": f"Application {application.status}"})
 
 
-from .serializers import DriverVehicleSerializer
 
 class AdminVehicleListView(APIView):
     permission_classes = [IsAdminUser]
@@ -98,6 +94,8 @@ class AdminVehicleListView(APIView):
             context={"request": request}
         )
         return Response(serializer.data)
+
+
 
 class AdminVehicleActionView(APIView):
     permission_classes = [IsAdminUser]

@@ -139,7 +139,7 @@ class DriverListSerializer(serializers.ModelSerializer):
     def get_all_vehicles(self, obj):
         vehicles_data = []
         
-        # 1. Approved Vehicles
+        # Approved Vehicles
         # We need the request context to build absolute URLs for images
         request = self.context.get('request')
         
@@ -159,7 +159,7 @@ class DriverListSerializer(serializers.ModelSerializer):
                 "image": image_url
             })
             
-        # 2. Legacy Vehicle
+        # Legacy Vehicle
         if obj.vehicle_model:
             # Check for duplicates based on registration number
             is_duplicate = False
@@ -180,12 +180,12 @@ class DriverListSerializer(serializers.ModelSerializer):
         return vehicles_data
 
     def _get_active_vehicle(self, obj):
-        # 1. Try to find a primary approved vehicle
+        # Try to find a primary approved vehicle
         primary = obj.vehicles.filter(status='approved', is_primary=True).first()
         if primary:
             return primary
         
-        # 2. Fallback to the most recently approved vehicle
+        # Fallback to the most recently approved vehicle
         return obj.vehicles.filter(status='approved').order_by('-created_at').first()
 
     def get_vehicle_full_name(self, obj):
@@ -193,7 +193,6 @@ class DriverListSerializer(serializers.ModelSerializer):
         if vehicle:
             return f"{vehicle.vehicle_model.brand.name} {vehicle.vehicle_model.name}"
         
-        # Legacy fallback
         if obj.vehicle_model:
             return f"{obj.vehicle_model.brand.name} {obj.vehicle_model.name}"
         return None
@@ -251,12 +250,11 @@ class DriverVehicleSerializer(serializers.ModelSerializer):
         read_only_fields = ["status", "is_primary"]
 
     def validate(self, data):
-        # We enforce all fields are provided when adding a new vehicle
+        # enforce all fields are provided when adding a new vehicle
         required_fields = ['vehicle_category', 'vehicle_model', 'registration_number', 'vehicle_image', 'rc_document', 'insurance_document']
         
         for field in required_fields:
             if not data.get(field):
-                 # Generic error strings are picked up by the global UI banner handler
                  raise serializers.ValidationError({"error": "All fields and documents are required."})
                  
         return data

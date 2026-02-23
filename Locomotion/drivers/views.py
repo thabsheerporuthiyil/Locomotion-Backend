@@ -1,11 +1,13 @@
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated,AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import DriverApplicationSerializer,DriverListSerializer
+from .serializers import DriverApplicationSerializer,DriverListSerializer,DriverVehicleSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
 from drf_yasg.utils import swagger_auto_schema
-from .models import DriverProfile
+from .models import DriverProfile,DriverVehicle
+from .permissions import IsActiveDriver
+
 
 
 class ApplyDriverView(APIView):
@@ -57,9 +59,11 @@ class ApplyDriverView(APIView):
             )
 
         return Response(serializer.errors, status=400)
+   
     
-
+# Find drivers page
 class DriverListView(APIView):
+    permission_classes = AllowAny
 
     def get(self, request):
 
@@ -129,63 +133,38 @@ class DriverDetailView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-
-
-
-from .serializers import DriverVehicleSerializer
-from .models import DriverVehicle
-
+# for driver's dashboard
 class DriverVehicleDataView(APIView):
-    permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
-
+    permission_classes = [IsActiveDriver]
+    
     def get(self, request):
-        if not hasattr(request.user, "driver_profile"):
-             return Response({"error": "User is not a driver"}, status=403)
-        
         vehicles = DriverVehicle.objects.filter(driver=request.user.driver_profile)
-        serializer = DriverVehicleSerializer(
-            vehicles, 
-            many=True,
-            context={"request": request}
-        )
+        serializer = DriverVehicleSerializer(vehicles, many=True, context={"request": request})
         return Response(serializer.data)
-
-    @swagger_auto_schema(
-        request_body=DriverVehicleSerializer,
-        responses={201: DriverVehicleSerializer},
-        operation_description="Add a new vehicle"
-    )
+    
     def post(self, request):
-        if not hasattr(request.user, "driver_profile"):
-             return Response({"error": "User is not a driver"}, status=403)
-
         serializer = DriverVehicleSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save(driver=request.user.driver_profile, status="pending")
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+            
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+# Toggle availability
 class DriverAvailabilityView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsActiveDriver]
 
     def get(self, request):
-        try:
-            driver = request.user.driver_profile
-            return Response({"is_available": driver.is_available})
-        except DriverProfile.DoesNotExist:
-            return Response({"error": "Driver profile not found"}, status=404)
-
+        driver = request.user.driver_profile
+        return Response({"is_available": driver.is_available})
+    
     def post(self, request):
-        try:
-            driver = request.user.driver_profile
-            # Toggle availability
-            driver.is_available = not driver.is_available
-            driver.save()
-            return Response({
-                "is_available": driver.is_available,
-                "message": "Availability updated"
-            })
-        except DriverProfile.DoesNotExist:
-            return Response({"error": "Driver profile not found"}, status=404)
+        driver = request.user.driver_profile
+        driver.is_available = not driver.is_available
+        driver.save()
+        
+        return Response({
+            "is_available": driver.is_available,
+            "message": "Availability updated"
+        })

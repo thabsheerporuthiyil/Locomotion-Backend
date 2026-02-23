@@ -55,7 +55,6 @@ class RegisterView(APIView):
         user.is_verified = False
         user.save()
 
-        # Invalidate old OTPs
         EmailOTP.objects.filter(email=email, is_used=False).update(is_used=True)
 
         otp = generate_otp()
@@ -95,7 +94,6 @@ class SendOTPView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Invalidate previous OTPs
         EmailOTP.objects.filter(email=email, is_used=False).update(is_used=True)
 
         otp = generate_otp()
@@ -138,7 +136,6 @@ class VerifyOTPView(APIView):
         record.is_used = True
         record.save()
 
-        # ADMIN OTP
         if user.is_staff or user.is_superuser:
             user.is_admin_otp_verified = True
             user.save()
@@ -159,7 +156,6 @@ class VerifyOTPView(APIView):
             )
             return response
 
-        # USER EMAIL VERIFICATION
         user.is_verified = True
         user.save()
         return Response({"message": "Email verified","name": user.name})

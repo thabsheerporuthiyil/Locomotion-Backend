@@ -19,19 +19,18 @@ class CalculateFareView(views.APIView):
 
             vehicle_category = request.data.get('vehicle_category', '').lower()
 
-            # Define dynamic rates based on vehicle type
             is_two_wheeler = any(word in vehicle_category for word in ['two', '2', 'bike', 'scooter', 'motorcycle'])
             
             if is_two_wheeler:
-                BASE_FARE = 25.0   # ₹25 base for 2-wheeler
-                PER_KM_RATE = 8.0  # ₹8 per km
-                PER_MIN_RATE = 1.0 # ₹1 per minute
+                BASE_FARE = 25.0  
+                PER_KM_RATE = 8.0
+                PER_MIN_RATE = 1.0
             else:
-                BASE_FARE = 50.0   # ₹50 base for 4-wheeler
-                PER_KM_RATE = 15.0 # ₹15 per km
-                PER_MIN_RATE = 2.0 # ₹2 per minute
+                BASE_FARE = 50.0
+                PER_KM_RATE = 15.0 
+                PER_MIN_RATE = 2.0 
             
-            # ORS API Call
+            
             ORS_API_KEY = getattr(settings, 'ORS_API_KEY', None)
             if not ORS_API_KEY:
                 return Response({'error': 'Please set the ORS_API_KEY in settings.py to calculate fares.'}, status=status.HTTP_400_BAD_REQUEST)

@@ -15,6 +15,7 @@ def send_otp_email(email, otp, subject="Your OTP"):
         recipient_list=[email],
     )
 
+
 @shared_task
 def purge_unverified_accounts():
     """

@@ -1,10 +1,10 @@
 from rest_framework import serializers
 from .models import RideRequest
-from drivers.serializers import DriverListSerializer
+
 
 class RideRequestSerializer(serializers.ModelSerializer):
     rider_name = serializers.CharField(source="rider.name", read_only=True)
-    rider_phone = serializers.CharField(source="rider.phone_number", read_only=True) # Assuming User has phone_number or similar
+    rider_phone = serializers.CharField(source="rider.phone_number", read_only=True)
     
     driver_name = serializers.CharField(source="driver.user.name", read_only=True)
     driver_phone = serializers.SerializerMethodField()
@@ -40,6 +40,7 @@ class RideRequestSerializer(serializers.ModelSerializer):
             return obj.driver.phone_number
         return None
 
+
 class RideRequestCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = RideRequest
@@ -55,6 +56,7 @@ class RideRequestCreateSerializer(serializers.ModelSerializer):
             "distance_km",
             "estimated_fare",
         ]
+
 
     def validate(self, data):
         required_fields = {

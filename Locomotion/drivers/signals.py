@@ -24,7 +24,7 @@ def handle_application_review(sender, instance, created, **kwargs):
             }
         )
         
-        # If profile existed, update fields (optional, but good for re-application)
+        # If profile existed, update fields
         if not created:
             driver_profile.phone_number = application.phone_number
             driver_profile.experience_years = application.experience_years

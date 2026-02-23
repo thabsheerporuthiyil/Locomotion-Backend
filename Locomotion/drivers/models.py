@@ -53,7 +53,6 @@ class DriverApplication(models.Model):
         blank=True
     )
 
-    # Documents & Images
     profile_image = models.ImageField(upload_to="profiles/")
     license_document = models.FileField(upload_to="driver_documents/licenses/")
     
@@ -81,6 +80,7 @@ class DriverApplication(models.Model):
         return f"{self.user} - {self.status}"
 
 
+# manage rejection history
 class DriverApplicationReview(models.Model):
 
     STATUS_CHOICES = (
@@ -135,7 +135,6 @@ class DriverProfile(models.Model):
         choices=SERVICE_TYPE_CHOICES
     )
 
-    # Retrieve primary vehicle details (Legacy support / Quick Access)
     vehicle_model = models.ForeignKey(
         VehicleModel,
         on_delete=models.SET_NULL,
@@ -165,6 +164,7 @@ class DriverProfile(models.Model):
         return f"{self.user} - Driver"
 
 
+# Allows multiple vehicles for a driver
 class DriverVehicle(models.Model):
     driver = models.ForeignKey(DriverProfile, on_delete=models.CASCADE, related_name="vehicles")
     
