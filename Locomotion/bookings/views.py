@@ -1,12 +1,13 @@
 import requests
 from django.conf import settings
-from rest_framework import generics, views, status
+from rest_framework.views import APIView
+from rest_framework import status
 from rest_framework.response import Response
 from .models import RideRequest
 from .serializers import RideRequestSerializer, RideRequestCreateSerializer
 
 
-class CalculateFareView(views.APIView):
+class CalculateFareView(APIView):
     def post(self, request):
         try:
             pickup_lat = request.data.get('pickup_lat')
@@ -30,7 +31,7 @@ class CalculateFareView(views.APIView):
                 PER_KM_RATE = 15.0 
                 PER_MIN_RATE = 2.0 
             
-            
+
             ORS_API_KEY = getattr(settings, 'ORS_API_KEY', None)
             if not ORS_API_KEY:
                 return Response({'error': 'Please set the ORS_API_KEY in settings.py to calculate fares.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -97,7 +98,7 @@ class CalculateFareView(views.APIView):
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # View stubs to prevent Django ImportErrors from missing views.py during previous interrupted feature
-class CreateRideRequestView(views.APIView):
+class CreateRideRequestView(APIView):
     from rest_framework.permissions import IsAuthenticated
     permission_classes = [IsAuthenticated]
 
@@ -123,19 +124,19 @@ class CreateRideRequestView(views.APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class DriverRideRequestListView(views.APIView):
+class DriverRideRequestListView(APIView):
     def get(self, request):
         queryset = RideRequest.objects.none()
         serializer = RideRequestSerializer(queryset, many=True)
         return Response(serializer.data)
 
-class RiderRideRequestListView(views.APIView):
+class RiderRideRequestListView(APIView):
     def get(self, request):
         queryset = RideRequest.objects.none()
         serializer = RideRequestSerializer(queryset, many=True)
         return Response(serializer.data)
 
-class RideRequestDetailView(views.APIView):
+class RideRequestDetailView(APIView):
     def get(self, request, pk):
         try:
             ride_request = RideRequest.objects.get(pk=pk)
@@ -163,6 +164,6 @@ class RideRequestDetailView(views.APIView):
         except RideRequest.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-class RideRequestActionView(views.APIView):
+class RideRequestActionView(APIView):
     def post(self, request, pk, action):
         return Response({'status': 'Dummy action response'}, status=status.HTTP_200_OK)
