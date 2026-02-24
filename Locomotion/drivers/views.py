@@ -60,10 +60,10 @@ class ApplyDriverView(APIView):
 
         return Response(serializer.errors, status=400)
    
-    
+   
 # Find drivers page
 class DriverListView(APIView):
-    permission_classes = AllowAny
+    permission_classes= [AllowAny]
 
     def get(self, request):
 

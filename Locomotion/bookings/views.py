@@ -1,11 +1,12 @@
 import requests
 from django.conf import settings
-from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import RideRequest
 from .serializers import RideRequestSerializer, RideRequestCreateSerializer
-
+from rest_framework.permissions import IsAuthenticated
+from drivers.permissions import IsActiveDriver
 
 class CalculateFareView(APIView):
     def post(self, request):
@@ -19,19 +20,17 @@ class CalculateFareView(APIView):
                 return Response({'error': 'Missing coordinates'}, status=status.HTTP_400_BAD_REQUEST)
 
             vehicle_category = request.data.get('vehicle_category', '').lower()
-
             is_two_wheeler = any(word in vehicle_category for word in ['two', '2', 'bike', 'scooter', 'motorcycle'])
             
             if is_two_wheeler:
-                BASE_FARE = 25.0  
+                BASE_FARE = 25.0
                 PER_KM_RATE = 8.0
                 PER_MIN_RATE = 1.0
             else:
                 BASE_FARE = 50.0
-                PER_KM_RATE = 15.0 
-                PER_MIN_RATE = 2.0 
+                PER_KM_RATE = 15.0
+                PER_MIN_RATE = 2.0
             
-
             ORS_API_KEY = getattr(settings, 'ORS_API_KEY', None)
             if not ORS_API_KEY:
                 return Response({'error': 'Please set the ORS_API_KEY in settings.py to calculate fares.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -83,7 +82,7 @@ class CalculateFareView(APIView):
                     
                     return Response({
                         'distance_km': round(distance_km, 2),
-                        'duration_min': round(duration_min, 0), # Round to nearest whole minute for realism
+                        'duration_min': round(duration_min, 0),
                         'ride_fare': round(ride_fare, 2),
                         'service_charge': round(SERVICE_CHARGE, 2),
                         'estimated_fare': round(total_estimated_fare, 2)
@@ -97,15 +96,13 @@ class CalculateFareView(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-# View stubs to prevent Django ImportErrors from missing views.py during previous interrupted feature
+
 class CreateRideRequestView(APIView):
-    from rest_framework.permissions import IsAuthenticated
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         user = request.user
         
-        # Validate that a phone number exists
         provided_phone = request.data.get('rider_phone_number')
         if not user.phone_number and not provided_phone:
             return Response(
@@ -115,7 +112,7 @@ class CreateRideRequestView(APIView):
 
         serializer = RideRequestCreateSerializer(data=request.data)
         if serializer.is_valid():
-            # If the user doesn't have a phone number, extract it from the ride payload and save it permanently
+
             if not user.phone_number and provided_phone:
                 user.phone_number = provided_phone
                 user.save()
@@ -124,22 +121,44 @@ class CreateRideRequestView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+# List ride requests for drivers
 class DriverRideRequestListView(APIView):
+    permission_classes = [IsActiveDriver]
+
     def get(self, request):
-        queryset = RideRequest.objects.none()
+        driver_profile = request.user.driver_profile
+        queryset = RideRequest.objects.filter(
+            driver=driver_profile,
+            status__in=['pending', 'accepted']
+        ).order_by('-created_at')
+        
         serializer = RideRequestSerializer(queryset, many=True)
         return Response(serializer.data)
 
+
+# List of all rides for riders "My Rides"
 class RiderRideRequestListView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
-        queryset = RideRequest.objects.none()
+        queryset = RideRequest.objects.filter(rider=request.user).order_by('-created_at')
         serializer = RideRequestSerializer(queryset, many=True)
         return Response(serializer.data)
 
-class RideRequestDetailView(APIView):
+# Not used yet
+class RideRequestDetailView(APIView):    
+    permission_classes = [IsAuthenticated]
+
     def get(self, request, pk):
         try:
             ride_request = RideRequest.objects.get(pk=pk)
+            is_rider = request.user == ride_request.rider
+            is_driver = hasattr(request.user, "driver_profile") and request.user.driver_profile == ride_request.driver
+            
+            if not (is_rider or is_driver):
+                return Response({'error': 'Not authorized to view this ride.'}, status=status.HTTP_403_FORBIDDEN)
+                
             serializer = RideRequestSerializer(ride_request)
             return Response(serializer.data)
         except RideRequest.DoesNotExist:
@@ -164,6 +183,40 @@ class RideRequestDetailView(APIView):
         except RideRequest.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
+# Actions like accept and reject
 class RideRequestActionView(APIView):
+    permission_classes = [IsActiveDriver]
+
     def post(self, request, pk, action):
-        return Response({'status': 'Dummy action response'}, status=status.HTTP_200_OK)
+        try:
+            ride_request = RideRequest.objects.get(pk=pk, driver=request.user.driver_profile)
+        except RideRequest.DoesNotExist:
+            return Response({'error': 'Ride request not found or you are not the assigned driver.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        valid_actions = ['accept', 'reject', 'complete', 'cancel']
+        if action not in valid_actions:
+            return Response({'error': f'Invalid action. Valid actions are: {", ".join(valid_actions)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if ride_request.status != 'pending' and action in ['accept', 'reject']:
+            return Response({'error': f'Cannot {action} a ride that is currently {ride_request.status}.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if ride_request.status != 'accepted' and action == 'complete':
+            return Response({'error': 'Cannot complete a ride that has not been accepted.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+        if action == 'accept':
+            ride_request.status = 'accepted'
+        elif action == 'reject':
+            ride_request.status = 'rejected'
+        elif action == 'complete':
+            ride_request.status = 'completed'
+        elif action == 'cancel':
+            ride_request.status = 'cancelled'
+
+        ride_request.save()
+
+        serializer = RideRequestSerializer(ride_request)
+        return Response({
+            'message': f'Ride request {action}ed successfully.',
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)

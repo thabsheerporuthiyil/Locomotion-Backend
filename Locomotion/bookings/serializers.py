@@ -35,7 +35,6 @@ class RideRequestSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "rider", "status", "created_at", "updated_at"]
 
     def get_driver_phone(self, obj):
-        # Only reveal phone number if status is accepted
         if obj.status == "accepted":
             return obj.driver.phone_number
         return None
