@@ -47,7 +47,8 @@ INSTALLED_APPS = [
     'vehicles',
     'location',
     'bookings',
-    'django_celery_beat'
+    'payments',
+    'django_celery_beat',
 ]
 
 MIDDLEWARE = [
@@ -119,7 +120,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'Locomotion.wsgi.application'
 
 
-
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
@@ -160,8 +160,12 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'accounts.tasks.purge_unverified_accounts',
         'schedule': crontab(hour=3, minute=0),  # Runs daily at 3:00 AM UTC
     },
+    'process-weekly-driver-payouts': {
+        'task': 'bookings.tasks.process_weekly_driver_payouts',
+        # Runs every Sunday at 11:30 PM UTC
+        'schedule': crontab(day_of_week='sun', hour=23, minute=30),  
+    },
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -215,4 +219,9 @@ EMAIL_HOST_USER = "locomotiondrivers@gmail.com"
 EMAIL_HOST_PASSWORD = "kymw pebh iyza ymsu"
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-ORS_API_KEY='eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjI4NzZmYmJlZWRlYTQ5MTI4YzU0ZDNmMzE0OGFjYjA1IiwiaCI6Im11cm11cjY0In0='
+ORS_API_KEY = 'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjI4NzZmYmJlZWRlYTQ5MTI4YzU0ZDNmMzE0OGFjYjA1IiwiaCI6Im11cm11cjY0In0='
+
+# Razorpay Integration
+RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', 'rzp_test_RzhW17wdnjByQf')
+RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', 'o1lJqskWhZUHK6Ex2p4Vzafb')
+

@@ -157,6 +157,7 @@ class DriverProfile(models.Model):
 
     is_active = models.BooleanField(default=True)
     is_available = models.BooleanField(default=True)
+    razorpay_account_id = models.CharField(max_length=255, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -78,7 +78,6 @@ class DriverApplicationSerializer(serializers.ModelSerializer):
             if not data.get("vehicle_registration_number"):
                 raise serializers.ValidationError({"error": "Registration number required."})
             
-            # Documents validation
             if not data.get("vehicle_image") or not data.get("rc_document") or not data.get("insurance_document"):
                  raise serializers.ValidationError({"error": "All vehicle documents (RC, Insurance, Photo) are required."})
 
@@ -120,8 +119,6 @@ class DriverListSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
-
-            # "phone_number", # Hidden until ride accepted
             "experience_years",
             "service_type",
             "vehicle_full_name",
@@ -161,7 +158,6 @@ class DriverListSerializer(serializers.ModelSerializer):
             
         # Legacy Vehicle
         if obj.vehicle_model:
-            # Check for duplicates based on registration number
             is_duplicate = False
             if obj.vehicle_registration_number:
                 for v_data in vehicles_data:
@@ -180,12 +176,10 @@ class DriverListSerializer(serializers.ModelSerializer):
         return vehicles_data
 
     def _get_active_vehicle(self, obj):
-        # Try to find a primary approved vehicle
         primary = obj.vehicles.filter(status='approved', is_primary=True).first()
         if primary:
             return primary
-        
-        # Fallback to the most recently approved vehicle
+    
         return obj.vehicles.filter(status='approved').order_by('-created_at').first()
 
     def get_vehicle_full_name(self, obj):
@@ -198,14 +192,12 @@ class DriverListSerializer(serializers.ModelSerializer):
         return None
 
     def get_vehicle_category_name(self, obj):
-        # Return list of categories for all approved vehicles
         vehicles = obj.vehicles.filter(status='approved')
         categories = set()
         
         for v in vehicles:
             categories.add(v.vehicle_category.name)
             
-        # Include Legacy vehicle if it exists
         if obj.vehicle_model:
             categories.add(obj.vehicle_model.brand.category.name)
             
@@ -250,7 +242,6 @@ class DriverVehicleSerializer(serializers.ModelSerializer):
         read_only_fields = ["status", "is_primary"]
 
     def validate(self, data):
-        # enforce all fields are provided when adding a new vehicle
         required_fields = ['vehicle_category', 'vehicle_model', 'registration_number', 'vehicle_image', 'rc_document', 'insurance_document']
         
         for field in required_fields:

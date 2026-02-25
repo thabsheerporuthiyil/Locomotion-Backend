@@ -1,5 +1,6 @@
 import requests
 from django.conf import settings
+import random
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -117,7 +118,8 @@ class CreateRideRequestView(APIView):
                 user.phone_number = provided_phone
                 user.save()
 
-            serializer.save(rider=user)
+            ride_otp = str(random.randint(1000, 9999))
+            serializer.save(rider=user, ride_otp=ride_otp)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -130,10 +132,10 @@ class DriverRideRequestListView(APIView):
         driver_profile = request.user.driver_profile
         queryset = RideRequest.objects.filter(
             driver=driver_profile,
-            status__in=['pending', 'accepted']
+            status__in=['pending', 'accepted', 'arrived', 'in_progress']
         ).order_by('-created_at')
         
-        serializer = RideRequestSerializer(queryset, many=True)
+        serializer = RideRequestSerializer(queryset, many=True, context={'request': request})
         return Response(serializer.data)
 
 
@@ -143,7 +145,7 @@ class RiderRideRequestListView(APIView):
 
     def get(self, request):
         queryset = RideRequest.objects.filter(rider=request.user).order_by('-created_at')
-        serializer = RideRequestSerializer(queryset, many=True)
+        serializer = RideRequestSerializer(queryset, many=True, context={'request': request})
         return Response(serializer.data)
 
 # Not used yet
@@ -159,7 +161,7 @@ class RideRequestDetailView(APIView):
             if not (is_rider or is_driver):
                 return Response({'error': 'Not authorized to view this ride.'}, status=status.HTTP_403_FORBIDDEN)
                 
-            serializer = RideRequestSerializer(ride_request)
+            serializer = RideRequestSerializer(ride_request, context={'request': request})
             return Response(serializer.data)
         except RideRequest.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
@@ -167,7 +169,7 @@ class RideRequestDetailView(APIView):
     def put(self, request, pk):
         try:
             ride_request = RideRequest.objects.get(pk=pk)
-            serializer = RideRequestSerializer(ride_request, data=request.data)
+            serializer = RideRequestSerializer(ride_request, data=request.data, context={'request': request})
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data)
@@ -193,21 +195,33 @@ class RideRequestActionView(APIView):
         except RideRequest.DoesNotExist:
             return Response({'error': 'Ride request not found or you are not the assigned driver.'}, status=status.HTTP_404_NOT_FOUND)
         
-        valid_actions = ['accept', 'reject', 'complete', 'cancel']
+        valid_actions = ['accept', 'reject', 'arrive', 'start_trip', 'complete', 'cancel']
         if action not in valid_actions:
             return Response({'error': f'Invalid action. Valid actions are: {", ".join(valid_actions)}'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if ride_request.status != 'pending' and action in ['accept', 'reject']:
+        if action in ['accept', 'reject'] and ride_request.status != 'pending':
             return Response({'error': f'Cannot {action} a ride that is currently {ride_request.status}.'}, status=status.HTTP_400_BAD_REQUEST)
             
-        if ride_request.status != 'accepted' and action == 'complete':
-            return Response({'error': 'Cannot complete a ride that has not been accepted.'}, status=status.HTTP_400_BAD_REQUEST)
+        if action == 'arrive' and ride_request.status != 'accepted':
+            return Response({'error': 'Cannot arrive for a ride that has not been accepted.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if action == 'start_trip' and ride_request.status != 'arrived':
+            return Response({'error': 'Cannot start a trip before arriving.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        if action == 'complete' and ride_request.status != 'in_progress':
+            return Response({'error': 'Cannot complete a ride that has not started.'}, status=status.HTTP_400_BAD_REQUEST)
 
         if action == 'accept':
             ride_request.status = 'accepted'
         elif action == 'reject':
             ride_request.status = 'rejected'
+        elif action == 'arrive':
+            ride_request.status = 'arrived'
+        elif action == 'start_trip':
+            provided_otp = request.data.get('otp')
+            if not provided_otp or provided_otp != ride_request.ride_otp:
+                return Response({'error': 'Invalid OTP.'}, status=status.HTTP_400_BAD_REQUEST)
+            ride_request.status = 'in_progress'
         elif action == 'complete':
             ride_request.status = 'completed'
         elif action == 'cancel':
@@ -215,8 +229,9 @@ class RideRequestActionView(APIView):
 
         ride_request.save()
 
-        serializer = RideRequestSerializer(ride_request)
+        serializer = RideRequestSerializer(ride_request, context={'request': request})
         return Response({
             'message': f'Ride request {action}ed successfully.',
             'data': serializer.data
         }, status=status.HTTP_200_OK)
+

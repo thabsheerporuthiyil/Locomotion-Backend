@@ -1,13 +1,14 @@
 from rest_framework import serializers
 from .models import RideRequest
-
+from drivers.serializers import DriverListSerializer
 
 class RideRequestSerializer(serializers.ModelSerializer):
     rider_name = serializers.CharField(source="rider.name", read_only=True)
-    rider_phone = serializers.CharField(source="rider.phone_number", read_only=True)
+    rider_phone = serializers.CharField(source="rider.phone_number", read_only=True) # Assuming User has phone_number or similar
     
     driver_name = serializers.CharField(source="driver.user.name", read_only=True)
     driver_phone = serializers.SerializerMethodField()
+    ride_otp = serializers.SerializerMethodField()
     
     class Meta:
         model = RideRequest
@@ -29,16 +30,25 @@ class RideRequestSerializer(serializers.ModelSerializer):
             "distance_km",
             "estimated_fare",
             "status",
+            "ride_otp",
+            "payment_status",
+            "is_paid",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "rider", "status", "created_at", "updated_at"]
 
     def get_driver_phone(self, obj):
-        if obj.status == "accepted":
+        if obj.status in ["accepted", "arrived", "in_progress"]:
             return obj.driver.phone_number
         return None
 
+    def get_ride_otp(self, obj):
+        request = self.context.get('request')
+        # Only expose OTP to the rider who requested the ride
+        if request and request.user == obj.rider:
+            return obj.ride_otp
+        return None
 
 class RideRequestCreateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -55,7 +65,6 @@ class RideRequestCreateSerializer(serializers.ModelSerializer):
             "distance_km",
             "estimated_fare",
         ]
-
 
     def validate(self, data):
         required_fields = {

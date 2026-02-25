@@ -54,3 +54,4 @@ model-bakery
 pytest-django
 pytest
 django-timezone-field
+razorpay
