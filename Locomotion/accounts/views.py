@@ -20,7 +20,6 @@ from .tasks import send_otp_email
 from google.oauth2 import id_token
 from google.auth.transport import requests
 from django.conf import settings
-from drivers.models import DriverApplication
 from drivers.serializers import DriverApplicationSerializer
 
 User = get_user_model()
@@ -131,7 +130,7 @@ class VerifyOTPView(APIView):
         ).last()
 
         if not record:
-            return Response({"error": "Invalid OTP"}, status=400)
+            return Response({"error": "Invalid OTP"}, status=status.HTTP_400_BAD_REQUEST)
 
         record.is_used = True
         record.save()
@@ -169,11 +168,11 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         user = User.objects.filter(email=email).first()
 
         if not user or not user.check_password(password):
-            return Response({"error": "Invalid credentials"}, status=401)
+            return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
         if not user.is_staff and not user.is_superuser:
             if not user.is_verified:
-                return Response({"error": "Email not verified"}, status=403)
+                return Response({"error": "Email not verified"}, status=status.HTTP_403_FORBIDDEN)
 
         if user.is_staff or user.is_superuser:
 
@@ -187,7 +186,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
                 return Response(
                     {"otp_required": True, "type": "email_otp"},
-                    status=200
+                    status=status.HTTP_200_OK
                 )
 
         if user.is_2fa_enabled:
@@ -197,7 +196,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
                     "type": "totp",
                     "user_id": user.id
                 },
-                status=200
+                status=status.HTTP_200_OK
             )
 
         refresh = RefreshToken.for_user(user)
@@ -238,7 +237,7 @@ class CookieTokenRefreshView(APIView):
                 "name": user.name,
             })
         except Exception:
-            return Response({"error": "Invalid token"}, status=401)
+            return Response({"error": "Invalid token"}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 class LogoutView(APIView):
@@ -344,7 +343,7 @@ class GoogleLoginView(APIView):
         token = request.data.get("token")
 
         if not token:
-            return Response({"error": "No token provided"}, status=400)
+            return Response({"error": "No token provided"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             # Verify token with Google
@@ -358,10 +357,10 @@ class GoogleLoginView(APIView):
             name = idinfo.get("name")
 
             if not email:
-                return Response({"error": "Email not available"}, status=400)
+                return Response({"error": "Email not available"}, status=status.HTTP_400_BAD_REQUEST)
 
         except ValueError:
-            return Response({"error": "Invalid Google token"}, status=400)
+            return Response({"error": "Invalid Google token"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Create or get user
         user, created = User.objects.get_or_create(
@@ -386,7 +385,7 @@ class GoogleLoginView(APIView):
                     "type": "totp",
                     "user_id": user.id
                 },
-                status=200
+                status=status.HTTP_200_OK
             )
 
         # Generate JWT
@@ -448,7 +447,7 @@ class Confirm2FAView(APIView):
         totp = pyotp.TOTP(user.twofa_secret)
 
         if not totp.verify(code):
-            return Response({"error": "Invalid code"}, status=400)
+            return Response({"error": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
 
         user.is_2fa_enabled = True
         user.save()
@@ -464,12 +463,12 @@ class Verify2FALoginView(APIView):
         try:
             user = User.objects.get(id=user_id)
         except User.DoesNotExist:
-            return Response({"error": "Invalid user"}, status=400)
+            return Response({"error": "Invalid user"}, status=status.HTTP_400_BAD_REQUEST)
 
         totp = pyotp.TOTP(user.twofa_secret)
 
         if not totp.verify(code):
-            return Response({"error": "Invalid code"}, status=400)
+            return Response({"error": "Invalid code"}, status=status.HTTP_400_BAD_REQUEST)
 
         refresh = RefreshToken.for_user(user)
 
