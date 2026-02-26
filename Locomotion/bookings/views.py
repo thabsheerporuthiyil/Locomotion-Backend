@@ -9,8 +9,24 @@ from .serializers import RideRequestSerializer, RideRequestCreateSerializer, Rid
 from rest_framework.permissions import IsAuthenticated
 from drivers.permissions import IsActiveDriver
 from django.db.models import Avg, Count
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 class CalculateFareView(APIView):
+    @swagger_auto_schema(
+        operation_description="Calculate estimated fare for a ride",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'pickup_lat': openapi.Schema(type=openapi.TYPE_NUMBER),
+                'pickup_lon': openapi.Schema(type=openapi.TYPE_NUMBER),
+                'dropoff_lat': openapi.Schema(type=openapi.TYPE_NUMBER),
+                'dropoff_lon': openapi.Schema(type=openapi.TYPE_NUMBER),
+                'vehicle_category': openapi.Schema(type=openapi.TYPE_STRING),
+            }
+        ),
+        responses={200: "Estimated fare details", 400: "Bad Request"}
+    )
     def post(self, request):
         try:
             pickup_lat = request.data.get('pickup_lat')
@@ -102,6 +118,11 @@ class CalculateFareView(APIView):
 class CreateRideRequestView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_description="Create a new ride request",
+        request_body=RideRequestCreateSerializer,
+        responses={201: RideRequestCreateSerializer, 400: "Bad Request"}
+    )
     def post(self, request):
         user = request.user
         
@@ -141,6 +162,10 @@ class CreateRideRequestView(APIView):
 class DriverRideRequestListView(APIView):
     permission_classes = [IsActiveDriver]
 
+    @swagger_auto_schema(
+        operation_description="List available ride requests for the driver",
+        responses={200: RideRequestSerializer(many=True)}
+    )
     def get(self, request):
         driver_profile = request.user.driver_profile
         
@@ -161,6 +186,10 @@ class DriverRideRequestListView(APIView):
 class RiderRideRequestListView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_description="List all past and current ride requests for the rider",
+        responses={200: RideRequestSerializer(many=True)}
+    )
     def get(self, request):
         queryset = RideRequest.objects.filter(rider=request.user).order_by('-created_at')
         serializer = RideRequestSerializer(queryset, many=True, context={'request': request})
@@ -170,6 +199,10 @@ class RiderRideRequestListView(APIView):
 class RideRequestDetailView(APIView):    
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_description="Get details of a specific ride request",
+        responses={200: RideRequestSerializer, 403: "Forbidden", 404: "Not Found"}
+    )
     def get(self, request, pk):
         try:
             ride_request = RideRequest.objects.get(pk=pk)
@@ -184,6 +217,11 @@ class RideRequestDetailView(APIView):
         except RideRequest.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
+    @swagger_auto_schema(
+        operation_description="Update a specific ride request",
+        request_body=RideRequestSerializer,
+        responses={200: RideRequestSerializer, 400: "Bad Request", 404: "Not Found"}
+    )
     def put(self, request, pk):
         try:
             ride_request = RideRequest.objects.get(pk=pk)
@@ -195,6 +233,10 @@ class RideRequestDetailView(APIView):
         except RideRequest.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
+    @swagger_auto_schema(
+        operation_description="Delete a specific ride request",
+        responses={204: "No Content", 404: "Not Found"}
+    )
     def delete(self, request, pk):
         try:
             ride_request = RideRequest.objects.get(pk=pk)
@@ -207,6 +249,19 @@ class RideRequestDetailView(APIView):
 class RideRequestActionView(APIView):
     permission_classes = [IsActiveDriver]
 
+    @swagger_auto_schema(
+        operation_description="Perform an action on a ride request (accept, reject, arrive, start_trip, complete, cancel)",
+        manual_parameters=[
+            openapi.Parameter('action', openapi.IN_PATH, description="Action to perform", type=openapi.TYPE_STRING)
+        ],
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'otp': openapi.Schema(type=openapi.TYPE_STRING, description="Required only for start_trip action")
+            }
+        ),
+        responses={200: "Success", 400: "Bad Request", 404: "Not Found"}
+    )
     def post(self, request, pk, action):
         try:
             ride_request = RideRequest.objects.get(pk=pk, driver=request.user.driver_profile)
@@ -264,6 +319,11 @@ class RideRequestActionView(APIView):
 class RateRideView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_description="Rate a completed ride",
+        request_body=RideRatingSerializer,
+        responses={200: "Rating submitted successfully.", 400: "Bad Request", 404: "Not Found"}
+    )
     def post(self, request, pk):
         try:
             ride = RideRequest.objects.get(pk=pk, rider=request.user)
