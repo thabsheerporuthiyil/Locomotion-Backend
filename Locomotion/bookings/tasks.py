@@ -56,7 +56,7 @@ def process_weekly_driver_payouts():
         if unsettled_rides.count() == 0:
             continue
             
-        # 3. Calculate total earnings for this driver
+        # Calculate total earnings for this driver
         # Ensure we don't hit None values
         total_fare_decimal = unsettled_rides.aggregate(Sum('estimated_fare'))['estimated_fare__sum']
         total_service_charge_decimal = unsettled_rides.aggregate(Sum('service_charge'))['service_charge__sum']

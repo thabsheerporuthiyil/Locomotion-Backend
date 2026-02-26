@@ -2,6 +2,11 @@ from rest_framework import serializers
 from .models import RideRequest
 from drivers.serializers import DriverListSerializer
 
+class RideRatingSerializer(serializers.Serializer):
+    rating = serializers.IntegerField(min_value=1, max_value=5)
+    feedback = serializers.CharField(required=False, allow_blank=True, max_length=1000)
+from drivers.serializers import DriverListSerializer
+
 class RideRequestSerializer(serializers.ModelSerializer):
     rider_name = serializers.CharField(source="rider.name", read_only=True)
     rider_phone = serializers.CharField(source="rider.phone_number", read_only=True) # Assuming User has phone_number or similar
@@ -33,12 +38,15 @@ class RideRequestSerializer(serializers.ModelSerializer):
             "ride_otp",
             "payment_status",
             "is_paid",
+            "rating",
+            "feedback",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "rider", "status", "created_at", "updated_at"]
+        read_only_fields = ["id", "rider", "status", "created_at", "updated_at", "rating", "feedback"]
 
     def get_driver_phone(self, obj):
+        # Only reveal phone number if status is accepted, arrived, or in_progress
         if obj.status in ["accepted", "arrived", "in_progress"]:
             return obj.driver.phone_number
         return None

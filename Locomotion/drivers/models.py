@@ -53,6 +53,7 @@ class DriverApplication(models.Model):
         blank=True
     )
 
+    # Documents & Images
     profile_image = models.ImageField(upload_to="profiles/")
     license_document = models.FileField(upload_to="driver_documents/licenses/")
     
@@ -80,7 +81,6 @@ class DriverApplication(models.Model):
         return f"{self.user} - {self.status}"
 
 
-# manage rejection history
 class DriverApplicationReview(models.Model):
 
     STATUS_CHOICES = (
@@ -135,6 +135,7 @@ class DriverProfile(models.Model):
         choices=SERVICE_TYPE_CHOICES
     )
 
+    # Retrieve primary vehicle details (Legacy support / Quick Access)
     vehicle_model = models.ForeignKey(
         VehicleModel,
         on_delete=models.SET_NULL,
@@ -157,15 +158,20 @@ class DriverProfile(models.Model):
 
     is_active = models.BooleanField(default=True)
     is_available = models.BooleanField(default=True)
-    razorpay_account_id = models.CharField(max_length=255, null=True, blank=True)
+
+    # Rating Fields
+    average_rating = models.FloatField(default=0.0)
+    total_ratings = models.IntegerField(default=0)
 
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    # Razorpay Linked Account ID for weekly payouts
+    razorpay_account_id = models.CharField(max_length=255, null=True, blank=True)
 
     def __str__(self):
         return f"{self.user} - Driver"
 
 
-# Allows multiple vehicles for a driver
 class DriverVehicle(models.Model):
     driver = models.ForeignKey(DriverProfile, on_delete=models.CASCADE, related_name="vehicles")
     

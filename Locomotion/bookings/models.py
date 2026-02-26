@@ -52,6 +52,10 @@ class RideRequest(models.Model):
     
     payout_status = models.CharField(max_length=20, choices=PAYOUT_STATUS_CHOICES, default="pending")
     
+    # Rating Fields
+    rating = models.IntegerField(null=True, blank=True, choices=[(i, i) for i in range(1, 6)])
+    feedback = models.TextField(null=True, blank=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -5,7 +5,8 @@ from .views import (
     RiderRideRequestListView,
     RideRequestDetailView,
     RideRequestActionView,
-    CalculateFareView
+    CalculateFareView,
+    RateRideView
 )
 
 urlpatterns = [
@@ -13,6 +14,7 @@ urlpatterns = [
     path('driver-requests/', DriverRideRequestListView.as_view(), name='driver-requests'),
     path('my-requests/', RiderRideRequestListView.as_view(), name='rider-requests'),
     path('<int:pk>/', RideRequestDetailView.as_view(), name='ride-request-detail'),
+    path('<int:pk>/rate/', RateRideView.as_view(), name='rate-ride'),
     path('<int:pk>/<str:action>/', RideRequestActionView.as_view(), name='ride-request-action'),
     path('calculate-fare/', CalculateFareView.as_view(), name='calculate-fare'),
 ]

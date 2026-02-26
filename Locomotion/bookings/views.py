@@ -5,9 +5,10 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import RideRequest
-from .serializers import RideRequestSerializer, RideRequestCreateSerializer
+from .serializers import RideRequestSerializer, RideRequestCreateSerializer, RideRatingSerializer
 from rest_framework.permissions import IsAuthenticated
 from drivers.permissions import IsActiveDriver
+from django.db.models import Avg, Count
 
 class CalculateFareView(APIView):
     def post(self, request):
@@ -235,3 +236,42 @@ class RideRequestActionView(APIView):
             'data': serializer.data
         }, status=status.HTTP_200_OK)
 
+
+class RateRideView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            ride = RideRequest.objects.get(pk=pk, rider=request.user)
+        except RideRequest.DoesNotExist:
+            return Response({"error": "Ride not found or unauthorized."}, status=status.HTTP_404_NOT_FOUND)
+
+        if ride.status != 'completed':
+            return Response({"error": "Only completed rides can be rated."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if ride.rating is not None:
+            return Response({"error": "This ride has already been rated."}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = RideRatingSerializer(data=request.data)
+        if serializer.is_valid():
+            ride.rating = serializer.validated_data['rating']
+            ride.feedback = serializer.validated_data.get('feedback', '')
+            ride.save()
+
+            # Update Driver's Average Rating
+            driver_profile = ride.driver
+            # Recalculate average based on all completed, rated rides
+            stats = RideRequest.objects.filter(
+                driver=driver_profile, 
+                rating__isnull=False
+            ).aggregate(
+                avg_rating=Avg('rating'), 
+                count=Count('rating')
+            )
+            
+            driver_profile.average_rating = round(stats['avg_rating'] or 0.0, 1)
+            driver_profile.total_ratings = stats['count']
+            driver_profile.save()
+
+            return Response({"message": "Rating submitted successfully."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
