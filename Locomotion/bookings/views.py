@@ -119,8 +119,20 @@ class CreateRideRequestView(APIView):
                 user.phone_number = provided_phone
                 user.save()
 
+            distance_km = serializer.validated_data.get('distance_km', 0)
+            
+            # --- Service Charge Logic ---
+            if distance_km <= 5.0:
+                service_charge = 10.0
+            elif distance_km <= 10.0:
+                service_charge = 15.0
+            elif distance_km <= 20.0:
+                service_charge = 25.0
+            else:
+                service_charge = 35.0
+
             ride_otp = str(random.randint(1000, 9999))
-            serializer.save(rider=user, ride_otp=ride_otp)
+            serializer.save(rider=user, ride_otp=ride_otp, service_charge=service_charge)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -131,6 +143,11 @@ class DriverRideRequestListView(APIView):
 
     def get(self, request):
         driver_profile = request.user.driver_profile
+        
+        # Block drivers with a wallet balance below -100
+        if driver_profile.wallet_balance <= -100.00:
+             return Response([])
+             
         queryset = RideRequest.objects.filter(
             driver=driver_profile,
             status__in=['pending', 'accepted', 'arrived', 'in_progress']
@@ -225,6 +242,13 @@ class RideRequestActionView(APIView):
             ride_request.status = 'in_progress'
         elif action == 'complete':
             ride_request.status = 'completed'
+            
+            # --- Prepaid Commission Wallet Deduction ---
+            driver_profile = ride_request.driver
+            if ride_request.service_charge:
+                 driver_profile.wallet_balance -= ride_request.service_charge
+                 driver_profile.save()
+                 
         elif action == 'cancel':
             ride_request.status = 'cancelled'
 

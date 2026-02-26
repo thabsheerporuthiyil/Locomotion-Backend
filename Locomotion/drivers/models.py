@@ -163,6 +163,9 @@ class DriverProfile(models.Model):
     average_rating = models.FloatField(default=0.0)
     total_ratings = models.IntegerField(default=0)
 
+    # Wallet Balance (Prepaid Commission Model)
+    wallet_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+
     created_at = models.DateTimeField(auto_now_add=True)
     
     # Razorpay Linked Account ID for weekly payouts

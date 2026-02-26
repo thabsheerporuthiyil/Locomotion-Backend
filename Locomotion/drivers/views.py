@@ -1,5 +1,5 @@
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated,AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from .serializers import DriverApplicationSerializer,DriverListSerializer,DriverVehicleSerializer
@@ -59,15 +59,13 @@ class ApplyDriverView(APIView):
             )
 
         return Response(serializer.errors, status=400)
-   
-   
-# Find drivers page
+    
+
 class DriverListView(APIView):
-    permission_classes= [AllowAny]
 
     def get(self, request):
 
-        queryset = DriverProfile.objects.filter(is_active=True)
+        queryset = DriverProfile.objects.filter(is_active=True, wallet_balance__gt=-100.00)
 
         district = request.query_params.get("district")
         taluk = request.query_params.get("taluk")
@@ -157,7 +155,10 @@ class DriverAvailabilityView(APIView):
 
     def get(self, request):
         driver = request.user.driver_profile
-        return Response({"is_available": driver.is_available})
+        return Response({
+             "is_available": driver.is_available,
+             "wallet_balance": driver.wallet_balance
+        })
     
     def post(self, request):
         driver = request.user.driver_profile
@@ -166,5 +167,6 @@ class DriverAvailabilityView(APIView):
         
         return Response({
             "is_available": driver.is_available,
+            "wallet_balance": driver.wallet_balance,
             "message": "Availability updated"
         })
